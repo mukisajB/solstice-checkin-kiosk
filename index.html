@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Solstice Check-In Kiosk</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+    input { padding: 8px; width: 200px; }
+    button { padding: 8px 16px; margin-left: 10px; }
+    #status { margin-top: 20px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Check-In Kiosk</h1>
+  <input type="text" id="attendeeId" placeholder="Enter QR code / ID" />
+  <button onclick="checkIn()">Check In</button>
+  <div id="status"></div>
+
+  <script>
+    async function checkIn() {
+      const id = document.getElementById('attendeeId').value;
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = "Submitting...";
+
+      try {
+        const res = await fetch(`/checkin/${id}`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.status === "pending") {
+          statusDiv.textContent = "Pending... waiting for printer callback";
+        } else if (data.status === "duplicate") {
+          statusDiv.textContent = "Already checked in!";
+        } else {
+          statusDiv.textContent = "Error: " + data.message;
+        }
+      } catch (err) {
+        statusDiv.textContent = "Error: " + err.message;
+      }
+    }
+  </script>
+</body>
+</html>

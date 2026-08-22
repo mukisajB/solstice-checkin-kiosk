@@ -1,112 +1,59 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Solstice Check-In Kiosk</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      background: linear-gradient(135deg, #4facfe, #00f2fe);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-    }
-    .container {
-      background: white;
-      padding: 40px;
-      border-radius: 12px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-      text-align: center;
-      width: 350px;
-    }
-    h1 {
-      color: #333;
-      margin-bottom: 20px;
-    }
-    input {
-      padding: 10px;
-      width: 80%;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      margin-bottom: 15px;
-    }
-    button {
-      padding: 10px 20px;
-      background: #4facfe;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 16px;
-    }
-    button:hover {
-      background: #00c6ff;
-    }
-    #status {
-      margin-top: 20px;
-      font-weight: bold;
-      color: #444;
-    }
-    #preview {
-      margin-top: 20px;
-      width: 200px;
-      height: 200px;
-      border: 2px dashed #ccc;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-    }
-    video {
-      width: 100%;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Check-In Kiosk</h1>
-    <input type="text" id="attendeeId" placeholder="Enter QR code / ID" />
-    <br>
-    <button onclick="checkIn()">Check In</button>
-    <button onclick="startScanner()">Scan QR</button>
-    <div id="status"></div>
-    <div id="preview"><video id="qr-video"></video></div>
-  </div>
+<div class="container">
+  <img src="logo.png" alt="Solstice Logo" style="width:120px; margin-bottom:20px;">
+  <h1>Check-In Kiosk</h1>
+  
+  <input type="text" id="attendeeId" placeholder="Enter QR code / ID" />
+  <br>
+  <button onclick="checkIn()">Check In</button>
+  <button onclick="startScanner()">Scan QR</button>
+  
+  <div id="status"></div>
+  
+  <!-- Approve button appears only after pending -->
+  <button id="approveBtn" style="display:none;" onclick="approve()">Approve Print</button>
+  
+  <div id="preview"><video id="qr-video"></video></div>
+</div>
 
-  <!-- QR Scanner library -->
-  <script src="https://unpkg.com/qr-scanner/qr-scanner.min.js"></script>
-  <script>
-    async function checkIn() {
-      const id = document.getElementById('attendeeId').value;
-      const statusDiv = document.getElementById('status');
-      statusDiv.textContent = "Submitting...";
+<script>
+  async function checkIn() {
+    const id = document.getElementById('attendeeId').value;
+    const statusDiv = document.getElementById('status');
+    const approveBtn = document.getElementById('approveBtn');
+    statusDiv.textContent = "Submitting...";
+    approveBtn.style.display = "none";
 
-      try {
-        const res = await fetch(`/checkin/${id}`, { method: 'POST' });
-        const data = await res.json();
+    try {
+      const res = await fetch(`/checkin/${id}`, { method: 'POST' });
+      const data = await res.json();
 
-        if (data.status === "pending") {
-          statusDiv.textContent = "Pending... waiting for printer callback";
-        } else if (data.status === "duplicate") {
-          statusDiv.textContent = "Already checked in!";
-        } else {
-          statusDiv.textContent = "Error: " + data.message;
-        }
-      } catch (err) {
-        statusDiv.textContent = "Error: " + err.message;
+      if (data.status === "pending") {
+        statusDiv.innerHTML = `⏳ Pending for attendee <b>${id}</b>`;
+        approveBtn.style.display = "inline-block";
+      } else if (data.status === "duplicate") {
+        statusDiv.innerHTML = "⚠️ Already checked in!";
+      } else {
+        statusDiv.innerHTML = "Error: " + data.message;
       }
+    } catch (err) {
+      statusDiv.textContent = "Error: " + err.message;
     }
+  }
 
-    function startScanner() {
-      const videoElem = document.getElementById('qr-video');
-      const qrScanner = new QrScanner(videoElem, result => {
-        document.getElementById('attendeeId').value = result;
-        qrScanner.stop();
-        checkIn();
+  async function approve() {
+    const id = document.getElementById('attendeeId').value;
+    const statusDiv = document.getElementById('status');
+    try {
+      const res = await fetch('/printer-callback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attendeeId: id, success: true })
       });
-      qrScanner.start();
+      const text = await res.text();
+      statusDiv.innerHTML = `✅ Approved for attendee <b>${id}</b>`;
+      document.getElementById('approveBtn').style.display = "none";
+    } catch (err) {
+      statusDiv.textContent = "Error approving: " + err.message;
     }
-  </script>
-</body>
-</html>
+  }
+</script>
